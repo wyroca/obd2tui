@@ -3,9 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
-// #define OBD2_READER_ADDR 0xC0A8000A // 192.168.0.10
-#define OBD2_READER_ADDR 0x7f000001 // for testing
+#define OBD2_READER_ADDR 0xC0A8000A // 192.168.0.10
+// #define OBD2_READER_ADDR 0x7f000001 // for testing
 #define OBD2_READER_PORT 35000
 
 void die(const char *error_message) {
@@ -28,6 +29,18 @@ int main(int argc, char *argv[]) {
 	int rc = connect(sockfd, (struct sockaddr *)&obd2_reader_addr, obd2_reader_addr_len);
 	if (rc == -1) {
 		die("Failed to connect to OBD2 reader\n");
+	}
+
+	char sendbuf[256] = {0};
+	while (1) {
+		printf("> ");
+		fgets(sendbuf, 256, stdin);
+
+		printf("sendbuf = %s\n", sendbuf);
+		sendbuf[strlen(sendbuf)] = '\r';
+
+		size_t bytes_sent = send(sockfd, sendbuf, strlen(sendbuf) - 1, 0);
+		memset(sendbuf, 0, 256);
 	}
 
 	return 0;
