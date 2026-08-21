@@ -1,5 +1,5 @@
 main: main.c 
-	gcc main.c -o main
+	gcc -g -lncurses -lmenu main.c -o main
 
 .PHONY: clean
 
