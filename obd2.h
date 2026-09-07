@@ -20,7 +20,7 @@ void obd2_reader_get_supported_pids_at(obd2_reader_ctx *ctx, const char *at);
 void obd2_reader_get_all_supported_pids(obd2_reader_ctx *ctx);
 
 
-const char* obd2_pid_descriptions[] = {
+/* const char* obd2_pid_descriptions[] = {
 	[0x00] = 	"PIDs supported [$01 - $20]",
 	[0x01] = "Monitor status since DTCs cleared.",
 	[0x02] = "DTC that caused freeze frame to be stored.",
@@ -195,6 +195,6 @@ const char* obd2_pid_descriptions[] = {
 	[0xC6] = "Byte 1 - Particulate control - driver inducement system status; Byte 2,3 - Removal or block of the particulate aftertreatment system counter; Byte 4,5 - Liquid regent injection system (e.g. fuel-borne catalyst) failure counter; Byte 6,7 - Malfunction of Particulate control monitoring system counter",
 	[0xC7] = "Distance Since Reflash or Module Replacement",
 	[0xC8] = "NOx Control Diagnostic (NCD) and Particulate Control Diagnostic (PCD) Warning Lamp status"
-};
+}; */
 
 #endif // !OBD2_H

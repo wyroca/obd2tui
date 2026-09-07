@@ -11,16 +11,17 @@ SRCS := $(wildcard *.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 
 $(TARGET): $(OBJS)
-	$(CC) $(LFLAGS) -o $(TARGET)
+	$(CC) $(LFLAGS) -o $(TARGET) $(OBJS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) -c $(CFLAGS) -o $@ $<
 
 .PHONY: clean test
 
 test:
 	@echo "SRCS = $(SRCS)"
 	@echo "OBJS = $(OBJS)"
+	@echo "TARGET = $(TARGET)"
 
 clean: 
 	rm -f $(TARGET) $(OBJS)

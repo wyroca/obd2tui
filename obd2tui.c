@@ -20,7 +20,7 @@ void vehicle_info() {
 	wclear(stdscr);
 }
 
-int main(int argc, char *argv[]) {
+int main() {
 //	struct sigaction sa;
 //	sa.sa_handler = handle_exit;
 //	sigemptyset(&sa.sa_mask);
@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
 		"Exit"
 	};
 
-	obd2_reader_ctx ctx;
+	//obd2_reader_ctx ctx;
 
 	initscr();	
 	cbreak();
@@ -54,7 +54,8 @@ int main(int argc, char *argv[]) {
 	mvprintw(LINES - 2, 0, "F1 to exit");
 	post_menu(menu);
 	refresh();
-	int c, choice = 0;
+	int c;
+	unsigned int choice = 0;
 	bool exit = false;
 	while (!exit) {
 		c = getch();
