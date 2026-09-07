@@ -1,7 +1,26 @@
-main: main.c 
-	gcc -g -lncurses -lmenu main.c -o main
+CC := gcc
+LD := gcc
 
-.PHONY: clean
+CFLAGS := -Wall -Wextra -Werror
 
-clean:
-	rm -f main
+LIBS := -lncurses -lmenu
+LFLAGS := $(LIBS)
+
+TARGET := obd2tui
+SRCS := $(wildcard *.c)
+OBJS := $(patsubst %.c,%.o,$(SRCS))
+
+$(TARGET): $(OBJS)
+	$(CC) $(LFLAGS) -o $(TARGET)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+.PHONY: clean test
+
+test:
+	@echo "SRCS = $(SRCS)"
+	@echo "OBJS = $(OBJS)"
+
+clean: 
+	rm -f $(TARGET) $(OBJS)

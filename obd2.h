@@ -1,22 +1,24 @@
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <stdbool.h>
-#include <signal.h>
+#ifndef OBD2_H
+#define OBD2_H
 
-#include <ncurses.h>
-#include <menu.h>
+#include <stdbool.h>
+
+#include "common.h"
 
 #define OBD2_READER_ADDR 0xC0A8000A // 192.168.0.10
 // #define OBD2_READER_ADDR 0x7f000001 // for testing
 #define OBD2_READER_PORT 35000
 
-#define ARRAY_SIZE(arr) ((sizeof(arr)) / (sizeof(arr[0])))
-#define min(a, b) (a < b ? a : b)
-#define max(a, b) (a > b ? a : b)
+typedef struct {
+	int sockfd;
+	bool is_valid;
+	bool pids_supported[200];
+} obd2_reader_ctx;
+
+void obd2_reader_init(obd2_reader_ctx *ctx);
+void obd2_reader_get_supported_pids_at(obd2_reader_ctx *ctx, const char *at);
+void obd2_reader_get_all_supported_pids(obd2_reader_ctx *ctx);
+
 
 const char* obd2_pid_descriptions[] = {
 	[0x00] = 	"PIDs supported [$01 - $20]",
@@ -195,162 +197,4 @@ const char* obd2_pid_descriptions[] = {
 	[0xC8] = "NOx Control Diagnostic (NCD) and Particulate Control Diagnostic (PCD) Warning Lamp status"
 };
 
-typedef struct {
-	int sockfd;
-	bool is_valid;
-	bool pids_supported[200];
-} obd2_reader_ctx;
-
-void die(const char *error_message) {
-	printf("%s\n", error_message);
-	exit(1);
-}
-
-void obd2_reader_init(obd2_reader_ctx *ctx) {
-	ctx->is_valid = false;
-
-	int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (sockfd == -1) {
-		die("Failed to create client TCP socket\n");
-	}
-
-	struct sockaddr_in obd2_reader_addr = {0};
-	socklen_t obd2_reader_addr_len = sizeof(obd2_reader_addr);
-	obd2_reader_addr.sin_addr.s_addr = htonl(OBD2_READER_ADDR);
-	obd2_reader_addr.sin_port = htons(OBD2_READER_PORT);
-	obd2_reader_addr.sin_family = AF_INET;
-
-	int rc = connect(sockfd, (struct sockaddr *)&obd2_reader_addr, obd2_reader_addr_len);
-	if (rc == -1) {
-		die("Failed to connect to OBD2 reader\n");
-	}
-
-	ctx->sockfd = sockfd;
-}
-
-void obd2_reader_get_supported_pids_at(obd2_reader_ctx *ctx, const char *at) {
-	char recv_buf[64] = {0};
-	char send_buf[6] = {0};
-	strncpy(send_buf, "01 ", 3);
-	send_buf[3] = at[0];
-	send_buf[4] = at[1];
-	send_buf[5] = '\r';
-	send(ctx->sockfd, send_buf, 6, 0); // 01 = Service 1 (show current data), 00 = PID 0 (ask for support for PIDs 1 - 32)
-	recv(ctx->sockfd, recv_buf, 64, 0); // reader echos back, need to receive this
-	memset(recv_buf, 0, sizeof(recv_buf));
-	recv(ctx->sockfd, recv_buf, 64, 0);
-	if (strncmp(recv_buf, "NO DATA", 7) == 0) {
-		return;
-	}
-	if (strncmp(recv_buf, "41", 2) != 0 && strncmp(recv_buf + 3, at, 2) != 0) {
-		printf("Did not receive expected response 41 %s confirming request for PID 0\n", at);
-	}
-
-	long offset = strtol(at, NULL, 16);
-	long supported_pids = strtol(recv_buf + 10, NULL, 16);
-	for (int i = 0; i < 32; i++) {
-		ctx->pids_supported[i + offset] = false;
-		if ((1 << (31 - i)) & supported_pids) {
-			ctx->pids_supported[i + offset] = true;
-		}
-	}
-}
-
-void obd2_reader_get_all_supported_pids(obd2_reader_ctx *ctx) {
-	obd2_reader_get_supported_pids_at(ctx, "00");
-	obd2_reader_get_supported_pids_at(ctx, "20");
-	obd2_reader_get_supported_pids_at(ctx, "40");
-	obd2_reader_get_supported_pids_at(ctx, "60");
-	obd2_reader_get_supported_pids_at(ctx, "80");
-	obd2_reader_get_supported_pids_at(ctx, "A0");
-	obd2_reader_get_supported_pids_at(ctx, "C0");
-}
-
-static void handle_exit(int signum) {
-	// TODO - probably don't even need this
-	printf("Got signum %d\n", signum);
-	endwin();
-}
-
-void vehicle_info() {
-	wclear(stdscr);
-	mvprintw(0, 0, "VEHICLE INFO");
-	getch();
-	wclear(stdscr);
-}
-
-int main(int argc, char *argv[]) {
-//	struct sigaction sa;
-//	sa.sa_handler = handle_exit;
-//	sigemptyset(&sa.sa_mask);
-//	sa.sa_flags = SA_RESTART;
-//	if (sigaction(SIGINT, &sa, NULL) == -1) {
-//		printf("Failed to set SIGKILL signal for handling curses de-init\n");
-//		return 1;
-//	}
-	char *menu_options[] = {
-		"Vehicle Info",
-		"Trouble Codes",
-		"Monitor PIDs",
-		"Exit"
-	};
-
-	obd2_reader_ctx ctx;
-
-	initscr();	
-	cbreak();
-	noecho();
-	keypad(stdscr, TRUE);
-
-	ITEM **items = calloc(5, sizeof(ITEM*))	;
-	for (int i = 0; i < 4; i++) {
-		//items[i] = new_item(menu_options[i], menu_options[i]);
-		items[i] = new_item(menu_options[i], NULL);
-	}
-	items[4] = NULL;
-
-	MENU *menu = new_menu(items);
-	mvprintw(LINES - 2, 0, "F1 to exit");
-	post_menu(menu);
-	refresh();
-	int c, choice = 0;
-	bool exit = false;
-	while (!exit) {
-		c = getch();
-		switch (c) {
-			case KEY_F(1):
-				exit = true;
-				break;
-			case KEY_DOWN:
-				choice++;
-				choice = min(choice, ARRAY_SIZE(menu_options) - 1);
-				menu_driver(menu, REQ_DOWN_ITEM);
-				break;
-			case KEY_UP:
-				choice--;
-				choice = max(choice, 0);
-				menu_driver(menu, REQ_UP_ITEM);
-				break;
-			case 10:
-				// TODO - handle enter
-				switch (choice) {
-					case 0:
-						unpost_menu(menu);
-						vehicle_info();
-						post_menu(menu);
-						break;
-					case 3:
-						exit = true;
-						break;
-					default:
-						break;
-				}
-				break;
-		}
-		refresh();
-	}
-
-	endwin();
-
-	return 0;
-}
+#endif // !OBD2_H
