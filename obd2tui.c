@@ -21,14 +21,6 @@ void vehicle_info() {
 }
 
 int main() {
-//	struct sigaction sa;
-//	sa.sa_handler = handle_exit;
-//	sigemptyset(&sa.sa_mask);
-//	sa.sa_flags = SA_RESTART;
-//	if (sigaction(SIGINT, &sa, NULL) == -1) {
-//		printf("Failed to set SIGKILL signal for handling curses de-init\n");
-//		return 1;
-//	}
 	char *menu_options[] = {
 		"Vehicle Info",
 		"Trouble Codes",
@@ -36,7 +28,8 @@ int main() {
 		"Exit"
 	};
 
-	//obd2_reader_ctx ctx;
+	obd2_reader_ctx ctx;
+	obd2_ctx_init(&ctx);
 
 	initscr();	
 	cbreak();
@@ -45,7 +38,6 @@ int main() {
 
 	ITEM **items = calloc(5, sizeof(ITEM*))	;
 	for (int i = 0; i < 4; i++) {
-		//items[i] = new_item(menu_options[i], menu_options[i]);
 		items[i] = new_item(menu_options[i], NULL);
 	}
 	items[4] = NULL;
@@ -55,7 +47,7 @@ int main() {
 	post_menu(menu);
 	refresh();
 	int c;
-	unsigned int choice = 0;
+	int choice = 0;
 	bool exit = false;
 	while (!exit) {
 		c = getch();
@@ -65,7 +57,7 @@ int main() {
 				break;
 			case KEY_DOWN:
 				choice++;
-				choice = min(choice, ARRAY_SIZE(menu_options) - 1);
+				choice = min(choice, (int)ARRAY_SIZE(menu_options) - 1);
 				menu_driver(menu, REQ_DOWN_ITEM);
 				break;
 			case KEY_UP:
