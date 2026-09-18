@@ -6,20 +6,21 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <netinet/tcp.h>
 
 #include "obd2.h"
 
 const char* obd2_pid_descriptions[] = {
-	[0x00] = 	"PIDs supported [$01 - $20]",
+	[0x00] = "PIDs supported [$01 - $20]",
 	[0x01] = "Monitor status since DTCs cleared.",
 	[0x02] = "DTC that caused freeze frame to be stored.",
 	[0x03] = "Fuel system status",
 	[0x04] = "Calculated engine load",
 	[0x05] = "Engine coolant temperature",
-	[0x06] = "Short term fuel trim (STFT)—Bank 1",
-	[0x07] = "Long term fuel trim (LTFT)—Bank 1",
-	[0x08] = "Short term fuel trim (STFT)—Bank 2",
-	[0x09] = "Long term fuel trim (LTFT)—Bank 2",
+	[0x06] = "Short term fuel trim (STFT) - Bank 1",
+	[0x07] = "Long term fuel trim (LTFT) - Bank 1",
+	[0x08] = "Short term fuel trim (STFT) - Bank 2",
+	[0x09] = "Long term fuel trim (LTFT) - Bank 2",
 	[0x0A] = "Fuel pressure (gauge pressure)",
 	[0x0B] = "Intake manifold absolute pressure",
 	[0x0C] = "Engine speed",
@@ -190,15 +191,27 @@ void obd2_ctx_init(obd2_reader_ctx *ctx) {
 	ctx->is_valid = false;
 	pthread_mutex_init(&ctx->connection_state_mutex, NULL);
 	ctx->connection_state = UNDEFINED;
+	
+	ctx->log_file = fopen("log.txt", "w");
+	// TODO - gotta be more robust eventually
 }
 
-void obd2_device_init(obd2_reader_ctx *ctx) {
+void *obd2_device_init(void *ctx_arg) {
+	obd2_reader_ctx *ctx = (obd2_reader_ctx*)ctx_arg;
 	ctx->is_valid = false;
 
 	int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sockfd == -1) {
-		die("Failed to create client TCP socket\n");
+		//die("Failed to create client TCP socket\n");
 	}
+
+	int optval = 1;
+	socklen_t len = sizeof(optval);
+	int rc = setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &optval, len);
+	if (rc == -1) {
+		fprintf(ctx->log_file, "SETSOCKOPT FAILED\n");
+	}
+	// TODO - error handling
 
 	struct sockaddr_in obd2_reader_addr = {0};
 	socklen_t obd2_reader_addr_len = sizeof(obd2_reader_addr);
@@ -206,45 +219,54 @@ void obd2_device_init(obd2_reader_ctx *ctx) {
 	obd2_reader_addr.sin_port = htons(OBD2_READER_PORT);
 	obd2_reader_addr.sin_family = AF_INET;
 
-	int rc = connect(sockfd, (struct sockaddr *)&obd2_reader_addr, obd2_reader_addr_len);
+	rc = connect(sockfd, (struct sockaddr *)&obd2_reader_addr, obd2_reader_addr_len);
+	pthread_mutex_lock(&ctx->connection_state_mutex);
 	if (rc == -1) {
-		die("Failed to connect to OBD2 reader\n");
+		ctx->connection_state = FAILED_TO_CONNECT;
 	} else {
+		ctx->connection_state = CONNECTED;
 		ctx->is_valid = true;
 	}
+	pthread_mutex_unlock(&ctx->connection_state_mutex);
+
+	pthread_cond_broadcast(&ctx->connection_condition);
 
 	ctx->sockfd = sockfd;
+
+	return NULL;
 }
 
 void obd2_reader_get_supported_pids_at(obd2_reader_ctx *ctx, const char *at) {
-	char recv_buf[64] = {0};
 	char send_buf[6] = {0};
 	strncpy(send_buf, "01 ", 4);
 	send_buf[3] = at[0];
 	send_buf[4] = at[1];
 	send_buf[5] = '\r';
 	send(ctx->sockfd, send_buf, 6, 0); // 01 = Service 1 (show current data), 00 = PID 0 (ask for support for PIDs 1 - 32)
-	recv(ctx->sockfd, recv_buf, 64, 0); // reader echos back, need to receive this
-	memset(recv_buf, 0, sizeof(recv_buf));
-	recv(ctx->sockfd, recv_buf, 64, 0);
-	if (strncmp(recv_buf, "NO DATA", 7) == 0) {
-		return;
-	}
-	if (strncmp(recv_buf, "41", 2) != 0 && strncmp(recv_buf + 3, at, 2) != 0) {
-		printf("Did not receive expected response 41 %s confirming request for PID 0\n", at);
-	}
+	//recv(ctx->sockfd, recv_buf, 64, 0); // reader echos back, need to receive this
+	//memset(recv_buf, 0, sizeof(recv_buf));
+	//recv(ctx->sockfd, recv_buf, 64, 0);
+	//if (strncmp(recv_buf, "NO DATA", 7) == 0) {
+	//	return;
+	//}
+	//if (strncmp(recv_buf, "41", 2) != 0 && strncmp(recv_buf + 3, at, 2) != 0) {
+	//	printf("Did not receive expected response 41 %s confirming request for PID 0\n", at);
+	//}
 
-	long offset = strtol(at, NULL, 16);
-	long supported_pids = strtol(recv_buf + 10, NULL, 16);
-	for (int i = 0; i < 32; i++) {
-		ctx->pids_supported[i + offset] = false;
-		if ((1 << (31 - i)) & supported_pids) {
-			ctx->pids_supported[i + offset] = true;
-		}
-	}
+	//long offset = strtol(at, NULL, 16);
+	//long supported_pids = strtol(recv_buf + 10, NULL, 16);
+	//for (int i = 0; i < 32; i++) {
+	//	ctx->pids_supported[i + offset] = false;
+	//	if ((1 << (31 - i)) & supported_pids) {
+	//		ctx->pids_supported[i + offset] = true;
+	//	}
+	//}
 }
 
 void obd2_reader_get_all_supported_pids(obd2_reader_ctx *ctx) {
+	// TODO - need to set TCP_NODELAY to avoid coalescing packets.
+	// See: https://github.com/scylladb/seastar/issues/968 for example
+	// Call setsockopt with IPPROTO_TCP as option level argument
 	obd2_reader_get_supported_pids_at(ctx, "00");
 	obd2_reader_get_supported_pids_at(ctx, "20");
 	obd2_reader_get_supported_pids_at(ctx, "40");
@@ -252,4 +274,34 @@ void obd2_reader_get_all_supported_pids(obd2_reader_ctx *ctx) {
 	obd2_reader_get_supported_pids_at(ctx, "80");
 	obd2_reader_get_supported_pids_at(ctx, "A0");
 	obd2_reader_get_supported_pids_at(ctx, "C0");
+}
+
+void *obd2_receive_messages(void *ctx_arg) {
+	obd2_reader_ctx *ctx = (obd2_reader_ctx*)ctx_arg;
+
+	while (1) {
+		char recv_buf[64] = {0}; // TODO - 64 proper size?
+		ssize_t num_bytes = recv(ctx->sockfd, recv_buf, 63, 0);
+		if (num_bytes == -1) {
+			fprintf(ctx->log_file, "Error reading message from OBD2 device\n");
+		} else {
+			fprintf(ctx->log_file, "Received message: ");
+			fprintf(ctx->log_file, recv_buf);
+		}
+		fflush(ctx->log_file);
+		if (strncmp(recv_buf, "NO DATA", 7) == 0) {
+			return NULL;
+		}
+
+		//long offset = strtol(at, NULL, 16);
+		//long supported_pids = strtol(recv_buf + 10, NULL, 16);
+		//for (int i = 0; i < 32; i++) {
+		//	ctx->pids_supported[i + offset] = false;
+		//	if ((1 << (31 - i)) & supported_pids) {
+		//		ctx->pids_supported[i + offset] = true;
+		//	}
+		//}
+	}
+
+	return NULL;
 }

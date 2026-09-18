@@ -1,11 +1,14 @@
 #include "menu.h"
 #include "common.h"
+#include "obd2.h"
 
+#include <curses.h>
 #include <menu.h>
 #include <ncurses.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/cdefs.h>
+
 
 static char *diagnostic_menu_options[] = {
 		"Vehicle Info",
@@ -25,6 +28,8 @@ void diagnosticMenuInit(DiagnosticMenu *dm, obd2_reader_ctx *ctx) {
 	menu_items[2] = new_item("Monitor PIDs", NULL);
 	menu_items[3] = new_item("Exit", NULL);
 	menu_items[4] = NULL;
+
+	dm->curr_choice = 0;
 
 	dm->menu = new_menu(menu_items);
 }
@@ -55,6 +60,11 @@ void diagnosticMenuLoop(DiagnosticMenu *dm) {
 					diagnosticMenuDisplayVehicleInfo(dm);
 					post_menu(dm->menu);
 					break;
+				case 2: // Monitor PIDs
+					unpost_menu(dm->menu);
+					diagnosticMenuDisplayPidData(dm);
+					post_menu(dm->menu);
+					break;
 				case 3:
 					dm->done = true;
 					break;
@@ -72,3 +82,71 @@ void diagnosticMenuDisplayVehicleInfo(DiagnosticMenu *dm __attribute_maybe_unuse
 	getch();
 	wclear(stdscr);
 }
+
+void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__) {
+	// Make left-half window for menu
+	WINDOW *menu_window = newwin(LINES, COLS / 2, 0, 0);
+	box(menu_window, 0, 0);
+	WINDOW *info_window = newwin(LINES, COLS / 2 - 1, 0, COLS / 2 - 1);
+	box(info_window, 0, 0);
+	init_pair(1, COLOR_BLUE, COLOR_RED);
+
+	wclear(stdscr);
+	ITEM **menu_items = calloc(0xC8, sizeof(ITEM*));
+	int idx = 0;
+	for (int i = 0; i < 0xC8; i++) {
+		if (obd2_pid_descriptions[i]) {
+			menu_items[idx] = new_item(obd2_pid_descriptions[i], NULL);
+			idx++;
+		}
+	}
+
+	MENU *pid_menu = new_menu(menu_items);
+
+	set_menu_win(pid_menu, menu_window);
+	set_menu_sub(pid_menu, derwin(menu_window, LINES - 1, COLS / 2 - 1, 0, 0));
+
+	refresh();
+	post_menu(pid_menu);
+	wrefresh(menu_window);
+	wbkgd(info_window, COLOR_PAIR(1));
+	mvwprintw(info_window, 0, 0, "BRUH");
+	wrefresh(info_window);
+
+	int curr_choice = 0;
+	bool brk = false;
+	while (!brk) {
+		int c = getch();
+		switch (c) {
+			case KEY_F(1):
+				brk = true;
+				break;
+			case KEY_DOWN:
+				curr_choice++;
+				curr_choice = min(curr_choice, idx - 2);
+				menu_driver(pid_menu, REQ_DOWN_ITEM);
+				break;
+			case KEY_UP:
+				curr_choice--;
+				curr_choice = max(curr_choice, 0);
+				menu_driver(pid_menu, REQ_UP_ITEM);
+				break;
+			case 10:
+				// TODO - handle enter
+				break;
+		}
+
+		wrefresh(menu_window);
+
+		mvwprintw(info_window, 0, 0, "BRUH");
+		wrefresh(info_window);
+
+		refresh();
+	}
+
+	unpost_menu(pid_menu);
+	//wclear(stdscr);
+}
+
+
+

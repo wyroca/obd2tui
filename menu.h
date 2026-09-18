@@ -17,5 +17,6 @@ typedef struct {
 void diagnosticMenuInit(DiagnosticMenu *dm, obd2_reader_ctx *ctx);
 void diagnosticMenuLoop(DiagnosticMenu *dm);
 void diagnosticMenuDisplayVehicleInfo(DiagnosticMenu *dm __attribute_maybe_unused__);
+void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__);
 
 #endif // !MENU_H

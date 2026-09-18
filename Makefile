@@ -1,7 +1,7 @@
 CC := gcc
 LD := gcc
 
-CFLAGS := -Wall -Wextra -Werror
+CFLAGS := -g -Wall -Wextra -Werror
 
 LIBS := -lncurses -lmenu
 LFLAGS := $(LIBS)
