@@ -110,13 +110,21 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__)
 	post_menu(pid_menu);
 	wrefresh(menu_window);
 	wbkgd(info_window, COLOR_PAIR(1));
-	mvwprintw(info_window, 0, 0, "BRUH");
+	if (dm->ctx->pids_supported[0]) {
+		mvwprintw(info_window, 0, 0, "SUPPORTED");
+	} else {
+		mvwprintw(info_window, 0, 0, "NOT SUPPORTED");
+	}
 	wrefresh(info_window);
 
 	int curr_choice = 0;
 	bool brk = false;
 	while (!brk) {
+		// TODO - the SUPPORTED/UNSUPPORTED logic gets buggy due to some of the indices 
+		// in the supported_pids array being missing. Need to handle this
 		int c = getch();
+		werase(menu_window);
+		werase(info_window);
 		switch (c) {
 			case KEY_F(1):
 				brk = true;
@@ -125,20 +133,31 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__)
 				curr_choice++;
 				curr_choice = min(curr_choice, idx - 2);
 				menu_driver(pid_menu, REQ_DOWN_ITEM);
+				if (dm->ctx->pids_supported[curr_choice]) {
+					mvwprintw(info_window, 0, 0, "SUPPORTED");
+				} else {
+					mvwprintw(info_window, 0, 0, "NOT SUPPORTED");
+				}
 				break;
 			case KEY_UP:
 				curr_choice--;
 				curr_choice = max(curr_choice, 0);
 				menu_driver(pid_menu, REQ_UP_ITEM);
+				if (dm->ctx->pids_supported[curr_choice]) {
+					mvwprintw(info_window, 0, 0, "SUPPORTED");
+				} else {
+					mvwprintw(info_window, 0, 0, "NOT SUPPORTED");
+				}
 				break;
 			case 10:
 				// TODO - handle enter
 				break;
 		}
 
+		mvwprintw(menu_window, LINES - 1, 0, "Choice: %d", curr_choice);
+
 		wrefresh(menu_window);
 
-		mvwprintw(info_window, 0, 0, "BRUH");
 		wrefresh(info_window);
 
 		refresh();

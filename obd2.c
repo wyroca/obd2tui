@@ -1,5 +1,6 @@
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -264,15 +265,23 @@ void obd2_reader_get_supported_pids_at(obd2_reader_ctx *ctx, const char *at) {
 }
 
 void obd2_reader_get_all_supported_pids(obd2_reader_ctx *ctx) {
-	// TODO - need to set TCP_NODELAY to avoid coalescing packets.
-	// See: https://github.com/scylladb/seastar/issues/968 for example
-	// Call setsockopt with IPPROTO_TCP as option level argument
+	/*
+	 * TODO - even with TCP_NODELAY, sending successive
+	 * messages results in coalesced packets, which doesn't seem
+	 * to work with ELM327
+	*/
 	obd2_reader_get_supported_pids_at(ctx, "00");
+	usleep(40 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "20");
+	usleep(40 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "40");
+	usleep(40 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "60");
+	usleep(40 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "80");
+	usleep(40 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "A0");
+	usleep(40 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "C0");
 }
 
@@ -292,6 +301,53 @@ void *obd2_receive_messages(void *ctx_arg) {
 		if (strncmp(recv_buf, "NO DATA", 7) == 0) {
 			return NULL;
 		}
+
+		if (strncmp(recv_buf, "41 ", 3) == 0) {
+			uint8_t idx;
+			// TODO - move this logic to common.c
+			if (recv_buf[3] >= 'A' && recv_buf[3] <= 'F') {
+				idx = 16 * (recv_buf[3] - 'A' + 10);
+			} else if (recv_buf[3] >= '0' && recv_buf[3] <= '9') {
+				idx = 16 * (recv_buf[3] - '0');
+			}
+
+			if (recv_buf[4] >= 'A' && recv_buf[4] <= 'F') {
+				idx += recv_buf[4] - 'A' + 10;
+			} else if (recv_buf[4] >= '0' && recv_buf[4] <= '9') {
+				idx += recv_buf[4] - '0';
+			}
+
+			uint32_t supported_bits = 0;
+			int supported_idx = 6;
+			int shift = 28;
+			fprintf(ctx->log_file, "|");
+			while (shift >= 0) {
+				fprintf(ctx->log_file, "%c", recv_buf[supported_idx]);
+				if (recv_buf[supported_idx] >= 'A' && recv_buf[supported_idx] <= 'F') {
+					supported_bits |= (recv_buf[supported_idx] - 'A' + 10) << shift;
+				} else if (recv_buf[supported_idx] >= 'a' && recv_buf[supported_idx] <= 'f') {
+					supported_bits |= (recv_buf[supported_idx] - 'a' + 10) << shift;
+				} else if (recv_buf[supported_idx] >= '0' && recv_buf[supported_idx] <= '9') {
+					supported_bits |= (recv_buf[supported_idx] - '0') << shift;
+				}
+
+
+				supported_idx++;
+				if (recv_buf[supported_idx] == ' ') supported_idx++;
+				shift -= 4;
+			}
+			fprintf(ctx->log_file, "|\n");
+
+			for (int i = idx; i < idx + 32; i++) {
+				ctx->pids_supported[i] = false;
+				if ((1 << (31 - (i - idx))) & supported_bits) {
+					ctx->pids_supported[i] = true;
+				}
+			}
+
+			fprintf(ctx->log_file, "Bits at %02X are %08X", idx, supported_bits);
+		}
+
 
 		//long offset = strtol(at, NULL, 16);
 		//long supported_pids = strtol(recv_buf + 10, NULL, 16);
