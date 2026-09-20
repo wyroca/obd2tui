@@ -271,18 +271,25 @@ void obd2_reader_get_all_supported_pids(obd2_reader_ctx *ctx) {
 	 * to work with ELM327
 	*/
 	obd2_reader_get_supported_pids_at(ctx, "00");
-	usleep(40 * 1e3);
+	usleep(240 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "20");
-	usleep(40 * 1e3);
+	usleep(240 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "40");
-	usleep(40 * 1e3);
+	usleep(240 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "60");
-	usleep(40 * 1e3);
+	usleep(240 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "80");
-	usleep(40 * 1e3);
+	usleep(240 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "A0");
-	usleep(40 * 1e3);
+	usleep(240 * 1e3);
 	obd2_reader_get_supported_pids_at(ctx, "C0");
+	usleep(240 * 1e3);
+
+	// Get coolant temp
+	// TODO - do NOT keep this here and DO make this its own function
+	char send_buf[] = "01 05\r";
+	send(ctx->sockfd, send_buf, 6, 0); // 01 = Service 1 (show current data), 00 = PID 0 (ask for support for PIDs 1 - 32)
+	
 }
 
 void *obd2_receive_messages(void *ctx_arg) {
@@ -299,7 +306,7 @@ void *obd2_receive_messages(void *ctx_arg) {
 		}
 		fflush(ctx->log_file);
 		if (strncmp(recv_buf, "NO DATA", 7) == 0) {
-			return NULL;
+			//return NULL;
 		}
 
 		if (strncmp(recv_buf, "41 ", 3) == 0) {
@@ -317,35 +324,54 @@ void *obd2_receive_messages(void *ctx_arg) {
 				idx += recv_buf[4] - '0';
 			}
 
+			// TODO - do not let this stay like this for long. This is super messy
 			uint32_t supported_bits = 0;
 			int supported_idx = 6;
 			int shift = 28;
-			fprintf(ctx->log_file, "|");
-			while (shift >= 0) {
-				fprintf(ctx->log_file, "%c", recv_buf[supported_idx]);
-				if (recv_buf[supported_idx] >= 'A' && recv_buf[supported_idx] <= 'F') {
-					supported_bits |= (recv_buf[supported_idx] - 'A' + 10) << shift;
-				} else if (recv_buf[supported_idx] >= 'a' && recv_buf[supported_idx] <= 'f') {
-					supported_bits |= (recv_buf[supported_idx] - 'a' + 10) << shift;
-				} else if (recv_buf[supported_idx] >= '0' && recv_buf[supported_idx] <= '9') {
-					supported_bits |= (recv_buf[supported_idx] - '0') << shift;
-				}
+
+			switch (idx) {
+				case 0x00:
+				case 0x20:
+				case 0x40:
+				case 0x60:
+				case 0x80:
+				case 0xA0:
+				case 0xC0:
+					fprintf(ctx->log_file, "|");
+					while (shift >= 0) {
+						fprintf(ctx->log_file, "%c", recv_buf[supported_idx]);
+						if (recv_buf[supported_idx] >= 'A' && recv_buf[supported_idx] <= 'F') {
+							supported_bits |= (recv_buf[supported_idx] - 'A' + 10) << shift;
+						} else if (recv_buf[supported_idx] >= 'a' && recv_buf[supported_idx] <= 'f') {
+							supported_bits |= (recv_buf[supported_idx] - 'a' + 10) << shift;
+						} else if (recv_buf[supported_idx] >= '0' && recv_buf[supported_idx] <= '9') {
+							supported_bits |= (recv_buf[supported_idx] - '0') << shift;
+						}
 
 
-				supported_idx++;
-				if (recv_buf[supported_idx] == ' ') supported_idx++;
-				shift -= 4;
+						supported_idx++;
+						if (recv_buf[supported_idx] == ' ') supported_idx++;
+						shift -= 4;
+					}
+					fprintf(ctx->log_file, "|\n");
+
+					for (int i = idx; i < idx + 32; i++) {
+						ctx->pids_supported[i] = false;
+						if ((1 << (31 - (i - idx))) & supported_bits) {
+							ctx->pids_supported[i] = true;
+						}
+					}
+
+					fprintf(ctx->log_file, "Bits at %02X are %08X", idx, supported_bits);
+					break;
+				case 0x05: // Coolant Temp
+					// Temp = A - 40
+					obd2_update_coolant_temp(ctx, recv_buf);
+					break;
+				case 0x06: // STFT Bank 1
+					break;
+
 			}
-			fprintf(ctx->log_file, "|\n");
-
-			for (int i = idx; i < idx + 32; i++) {
-				ctx->pids_supported[i] = false;
-				if ((1 << (31 - (i - idx))) & supported_bits) {
-					ctx->pids_supported[i] = true;
-				}
-			}
-
-			fprintf(ctx->log_file, "Bits at %02X are %08X", idx, supported_bits);
 		}
 
 
@@ -360,4 +386,22 @@ void *obd2_receive_messages(void *ctx_arg) {
 	}
 
 	return NULL;
+}
+
+void obd2_update_coolant_temp(obd2_reader_ctx *ctx, char *recv_buf) {
+	// Coolant temp = A - 40
+	uint8_t A = 0;
+	if (recv_buf[6] >= 'A' && recv_buf[6] <= 'F') {
+		A = 16 * (recv_buf[6] - 'A' + 10);
+	} else if (recv_buf[6] >= '0' && recv_buf[6] <= '9') {
+		A = 16 * (recv_buf[6] - '0');
+	}
+
+	if (recv_buf[7] >= 'A' && recv_buf[7] <= 'F') {
+		A += recv_buf[7] - 'A' + 10;
+	} else if (recv_buf[7] >= '0' && recv_buf[7] <= '9') {
+		A += recv_buf[7] - '0';
+	}
+
+	ctx->coolant_temp = A - 40;
 }

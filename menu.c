@@ -94,7 +94,7 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__)
 	wclear(stdscr);
 	ITEM **menu_items = calloc(0xC8, sizeof(ITEM*));
 	int idx = 0;
-	for (int i = 0; i < 0xC8; i++) {
+	for (int i = 0; i <= 0xC8; i++) {
 		if (obd2_pid_descriptions[i]) {
 			menu_items[idx] = new_item(obd2_pid_descriptions[i], NULL);
 			idx++;
@@ -118,6 +118,7 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__)
 	wrefresh(info_window);
 
 	int curr_choice = 0;
+	int choice_idx;
 	bool brk = false;
 	while (!brk) {
 		// TODO - the SUPPORTED/UNSUPPORTED logic gets buggy due to some of the indices 
@@ -132,8 +133,18 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__)
 			case KEY_DOWN:
 				curr_choice++;
 				curr_choice = min(curr_choice, idx - 2);
+				choice_idx = curr_choice;
+				if (choice_idx > 147 && choice_idx < 151) {
+					choice_idx += 4;
+				} else if (choice_idx > 168 && choice_idx < 191) {
+					choice_idx += 23;
+				} else if (choice_idx > 191 && choice_idx < 194) {
+					choice_idx += 3;
+				}
 				menu_driver(pid_menu, REQ_DOWN_ITEM);
-				if (dm->ctx->pids_supported[curr_choice]) {
+				if (choice_idx == 5) {
+					mvwprintw(info_window, 0, 0, "COOLANT TEMP: %d C", dm->ctx->coolant_temp);
+				} else if (dm->ctx->pids_supported[choice_idx]) {
 					mvwprintw(info_window, 0, 0, "SUPPORTED");
 				} else {
 					mvwprintw(info_window, 0, 0, "NOT SUPPORTED");
@@ -142,8 +153,15 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__)
 			case KEY_UP:
 				curr_choice--;
 				curr_choice = max(curr_choice, 0);
+				if (choice_idx > 147 && choice_idx < 151) {
+					choice_idx += 4;
+				} else if (choice_idx > 168 && choice_idx < 191) {
+					choice_idx += 23;
+				} else if (choice_idx > 191 && choice_idx < 194) {
+					choice_idx += 3;
+				}
 				menu_driver(pid_menu, REQ_UP_ITEM);
-				if (dm->ctx->pids_supported[curr_choice]) {
+				if (dm->ctx->pids_supported[choice_idx]) {
 					mvwprintw(info_window, 0, 0, "SUPPORTED");
 				} else {
 					mvwprintw(info_window, 0, 0, "NOT SUPPORTED");
