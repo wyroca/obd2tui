@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <netinet/tcp.h>
 
+#include "common.h"
 #include "obd2.h"
 
 const char* obd2_pid_descriptions[] = {
@@ -244,24 +245,6 @@ void obd2_reader_get_supported_pids_at(obd2_reader_ctx *ctx, const char *at) {
 	send_buf[4] = at[1];
 	send_buf[5] = '\r';
 	send(ctx->sockfd, send_buf, 6, 0); // 01 = Service 1 (show current data), 00 = PID 0 (ask for support for PIDs 1 - 32)
-	//recv(ctx->sockfd, recv_buf, 64, 0); // reader echos back, need to receive this
-	//memset(recv_buf, 0, sizeof(recv_buf));
-	//recv(ctx->sockfd, recv_buf, 64, 0);
-	//if (strncmp(recv_buf, "NO DATA", 7) == 0) {
-	//	return;
-	//}
-	//if (strncmp(recv_buf, "41", 2) != 0 && strncmp(recv_buf + 3, at, 2) != 0) {
-	//	printf("Did not receive expected response 41 %s confirming request for PID 0\n", at);
-	//}
-
-	//long offset = strtol(at, NULL, 16);
-	//long supported_pids = strtol(recv_buf + 10, NULL, 16);
-	//for (int i = 0; i < 32; i++) {
-	//	ctx->pids_supported[i + offset] = false;
-	//	if ((1 << (31 - i)) & supported_pids) {
-	//		ctx->pids_supported[i + offset] = true;
-	//	}
-	//}
 }
 
 void obd2_reader_get_all_supported_pids(obd2_reader_ctx *ctx) {
@@ -310,24 +293,8 @@ void *obd2_receive_messages(void *ctx_arg) {
 		}
 
 		if (strncmp(recv_buf, "41 ", 3) == 0) {
-			uint8_t idx;
-			// TODO - move this logic to common.c
-			if (recv_buf[3] >= 'A' && recv_buf[3] <= 'F') {
-				idx = 16 * (recv_buf[3] - 'A' + 10);
-			} else if (recv_buf[3] >= '0' && recv_buf[3] <= '9') {
-				idx = 16 * (recv_buf[3] - '0');
-			}
-
-			if (recv_buf[4] >= 'A' && recv_buf[4] <= 'F') {
-				idx += recv_buf[4] - 'A' + 10;
-			} else if (recv_buf[4] >= '0' && recv_buf[4] <= '9') {
-				idx += recv_buf[4] - '0';
-			}
-
-			// TODO - do not let this stay like this for long. This is super messy
-			uint32_t supported_bits = 0;
-			int supported_idx = 6;
-			int shift = 28;
+			uint8_t idx = hex_chars_to_u8(recv_buf + 3);
+			uint32_t supported_bits;
 
 			switch (idx) {
 				case 0x00:
@@ -337,23 +304,7 @@ void *obd2_receive_messages(void *ctx_arg) {
 				case 0x80:
 				case 0xA0:
 				case 0xC0:
-					fprintf(ctx->log_file, "|");
-					while (shift >= 0) {
-						fprintf(ctx->log_file, "%c", recv_buf[supported_idx]);
-						if (recv_buf[supported_idx] >= 'A' && recv_buf[supported_idx] <= 'F') {
-							supported_bits |= (recv_buf[supported_idx] - 'A' + 10) << shift;
-						} else if (recv_buf[supported_idx] >= 'a' && recv_buf[supported_idx] <= 'f') {
-							supported_bits |= (recv_buf[supported_idx] - 'a' + 10) << shift;
-						} else if (recv_buf[supported_idx] >= '0' && recv_buf[supported_idx] <= '9') {
-							supported_bits |= (recv_buf[supported_idx] - '0') << shift;
-						}
-
-
-						supported_idx++;
-						if (recv_buf[supported_idx] == ' ') supported_idx++;
-						shift -= 4;
-					}
-					fprintf(ctx->log_file, "|\n");
+					supported_bits = hex_chars_to_u32(recv_buf + 6);
 
 					for (int i = idx; i < idx + 32; i++) {
 						ctx->pids_supported[i] = false;
@@ -362,7 +313,6 @@ void *obd2_receive_messages(void *ctx_arg) {
 						}
 					}
 
-					fprintf(ctx->log_file, "Bits at %02X are %08X", idx, supported_bits);
 					break;
 				case 0x05: // Coolant Temp
 					// Temp = A - 40
@@ -373,16 +323,6 @@ void *obd2_receive_messages(void *ctx_arg) {
 
 			}
 		}
-
-
-		//long offset = strtol(at, NULL, 16);
-		//long supported_pids = strtol(recv_buf + 10, NULL, 16);
-		//for (int i = 0; i < 32; i++) {
-		//	ctx->pids_supported[i + offset] = false;
-		//	if ((1 << (31 - i)) & supported_pids) {
-		//		ctx->pids_supported[i + offset] = true;
-		//	}
-		//}
 	}
 
 	return NULL;
@@ -390,18 +330,6 @@ void *obd2_receive_messages(void *ctx_arg) {
 
 void obd2_update_coolant_temp(obd2_reader_ctx *ctx, char *recv_buf) {
 	// Coolant temp = A - 40
-	uint8_t A = 0;
-	if (recv_buf[6] >= 'A' && recv_buf[6] <= 'F') {
-		A = 16 * (recv_buf[6] - 'A' + 10);
-	} else if (recv_buf[6] >= '0' && recv_buf[6] <= '9') {
-		A = 16 * (recv_buf[6] - '0');
-	}
-
-	if (recv_buf[7] >= 'A' && recv_buf[7] <= 'F') {
-		A += recv_buf[7] - 'A' + 10;
-	} else if (recv_buf[7] >= '0' && recv_buf[7] <= '9') {
-		A += recv_buf[7] - '0';
-	}
-
+	uint8_t A = hex_chars_to_u8(recv_buf + 6);
 	ctx->coolant_temp = A - 40;
 }
