@@ -20,6 +20,7 @@ typedef enum {
 
 typedef struct {
 	int sockfd;
+	uint16_t fuel_system_status;
 	uint8_t coolant_temp; // TODO - probably don't want this in here at the top level
 	FILE *log_file;
 	ConnectionState connection_state;
@@ -36,6 +37,7 @@ void *obd2_device_init(void *ctx_arg);
 void obd2_reader_get_supported_pids_at(obd2_reader_ctx *ctx, const char *at);
 void obd2_reader_get_all_supported_pids(obd2_reader_ctx *ctx);
 void *obd2_receive_messages(void *ctx_arg);
+void obd2_update_fuel_system_status(obd2_reader_ctx *ctx, char *recv_buf);
 void obd2_update_coolant_temp(obd2_reader_ctx *ctx, char *recv_buf);
 
 

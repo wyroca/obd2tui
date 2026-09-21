@@ -288,9 +288,7 @@ void *obd2_receive_messages(void *ctx_arg) {
 			fprintf(ctx->log_file, recv_buf);
 		}
 		fflush(ctx->log_file);
-		if (strncmp(recv_buf, "NO DATA", 7) == 0) {
-			//return NULL;
-		}
+		// TODO - special handling of "NO DATA" response?
 
 		if (strncmp(recv_buf, "41 ", 3) == 0) {
 			uint8_t idx = hex_chars_to_u8(recv_buf + 3);
@@ -305,14 +303,12 @@ void *obd2_receive_messages(void *ctx_arg) {
 				case 0xA0:
 				case 0xC0:
 					supported_bits = hex_chars_to_u32(recv_buf + 6);
-
 					for (int i = idx; i < idx + 32; i++) {
 						ctx->pids_supported[i] = false;
 						if ((1 << (31 - (i - idx))) & supported_bits) {
 							ctx->pids_supported[i] = true;
 						}
 					}
-
 					break;
 				case 0x05: // Coolant Temp
 					// Temp = A - 40
@@ -320,7 +316,6 @@ void *obd2_receive_messages(void *ctx_arg) {
 					break;
 				case 0x06: // STFT Bank 1
 					break;
-
 			}
 		}
 	}
@@ -333,3 +328,10 @@ void obd2_update_coolant_temp(obd2_reader_ctx *ctx, char *recv_buf) {
 	uint8_t A = hex_chars_to_u8(recv_buf + 6);
 	ctx->coolant_temp = A - 40;
 }
+
+void obd2_update_fuel_system_status(obd2_reader_ctx *ctx, char *recv_buf) {
+	uint16_t AB = hex_chars_to_u16(recv_buf + 6);
+	ctx->fuel_system_status = AB;
+}
+
+

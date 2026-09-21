@@ -142,8 +142,34 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__)
 					choice_idx += 3;
 				}
 				menu_driver(pid_menu, REQ_DOWN_ITEM);
+				// TODO - need to switch on PID somewhere else as this is unclean
 				if (choice_idx == 5) {
 					mvwprintw(info_window, 0, 0, "COOLANT TEMP: %d C", dm->ctx->coolant_temp);
+				} else if (choice_idx == 3) {
+					for (int i = 0; i < 2; i++) {
+						switch (dm->ctx->fuel_system_status << (1 - i)) {
+							case 0:
+								mvwprintw(info_window, 0, 0, "Motor off");
+								break;
+							case 1:
+								mvwprintw(info_window, 0, 0, "Open loop due to insufficient engine temperature");
+								break;
+							case 2:
+								mvwprintw(info_window, 0, 0, "Closed loop, using oxygen sensor feedback to determine fuel mix");
+								break;
+							case 4:
+								mvwprintw(info_window, 0, 0, "Open loop due to engine load OR fuel cut due to deceleration");
+								break;
+							case 8:
+								mvwprintw(info_window, 0, 0, "Open loop due to system failure");
+								break;
+							case 16:
+								mvwprintw(info_window, 0, 0, "Closed loop, using at least one oxygen sensor but there is a fault in the feedback system");
+								break;
+							default:
+								mvwprintw(info_window, 0, 0, "Fuel system status unknown");
+						}
+					}
 				} else if (dm->ctx->pids_supported[choice_idx]) {
 					mvwprintw(info_window, 0, 0, "SUPPORTED");
 				} else {

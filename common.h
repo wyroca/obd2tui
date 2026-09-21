@@ -10,6 +10,7 @@ void die(const char *error_message);
 
 uint8_t hex_char_to_nibble(char c);
 uint8_t hex_chars_to_u8(const char *chars);
+uint8_t hex_chars_to_u16(const char *chars);
 uint32_t hex_chars_to_u32(const char *chars);
 
 #endif // !COMMON_H

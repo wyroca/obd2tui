@@ -27,6 +27,15 @@ uint8_t hex_chars_to_u8(const char *chars) {
 	return 16 * hex_char_to_nibble(chars[0]) + hex_char_to_nibble(chars[1]);
 }
 
+uint8_t hex_chars_to_u16(const char *chars) {
+	uint16_t result = 0;
+	result += 4096 * hex_char_to_nibble(chars[0]);
+	result += 256 * hex_char_to_nibble(chars[1]);
+	result += 16 * hex_char_to_nibble(chars[2]);
+	result += hex_char_to_nibble(chars[3]);
+	return result;
+}
+
 uint32_t hex_chars_to_u32(const char *chars) {
 	int shift = 28, idx = 0; 
 	uint32_t result = 0;
