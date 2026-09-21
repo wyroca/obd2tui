@@ -62,7 +62,7 @@ void diagnosticMenuLoop(DiagnosticMenu *dm) {
 					break;
 				case 2: // Monitor PIDs
 					unpost_menu(dm->menu);
-					diagnosticMenuDisplayPidData(dm);
+					diagnosticMenuDisplayPidMenu(dm);
 					post_menu(dm->menu);
 					break;
 				case 3:
@@ -83,7 +83,7 @@ void diagnosticMenuDisplayVehicleInfo(DiagnosticMenu *dm __attribute_maybe_unuse
 	wclear(stdscr);
 }
 
-void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__) {
+void diagnosticMenuDisplayPidMenu(DiagnosticMenu *dm __attribute_maybe_unused__) {
 	// Make left-half window for menu
 	WINDOW *menu_window = newwin(LINES, COLS / 2, 0, 0);
 	box(menu_window, 0, 0);
@@ -131,13 +131,13 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__)
 				break;
 			case KEY_DOWN:
 				curr_choice = min(curr_choice + 1, idx - 2);
-				diagnosticMenuGetPidData(dm, info_window, curr_choice);
+				diagnosticMenuDisplayPidData(dm, info_window, curr_choice);
 				break;
 			case KEY_UP:
 				curr_choice--;
 				curr_choice = max(curr_choice, 0);
 				menu_driver(pid_menu, REQ_UP_ITEM);
-				diagnosticMenuGetPidData(dm, info_window, curr_choice);
+				diagnosticMenuDisplayPidData(dm, info_window, curr_choice);
 				break;
 			case 10:
 				// TODO - handle enter
@@ -155,7 +155,7 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__)
 	//wclear(stdscr);
 }
 
-void diagnosticMenuGetPidData(DiagnosticMenu *dm __attribute_maybe_unused__, WINDOW *info_window, int pid) {
+void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__, WINDOW *info_window, int pid) {
 	if (pid > 147 && pid < 151) {
 		pid += 4;
 	} else if (pid > 168 && pid < 191) {

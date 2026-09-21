@@ -19,6 +19,12 @@ typedef enum {
 } ConnectionState;
 
 typedef struct {
+	// TODO - optimize layout
+	uint8_t service_mode;
+	uint8_t *data; // variable length
+} obd2_pid;
+
+typedef struct {
 	int sockfd;
 	uint16_t fuel_system_status;
 	uint8_t coolant_temp; // TODO - probably don't want this in here at the top level
