@@ -173,14 +173,23 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__,
 	} else if (pid > 191 && pid < 194) {
 		pid += 3;
 	}
-	if (pid == 5) {
-		diagnosticMenuDisplayCoolantTemp(dm, info_window);
-	} else if (pid == 3) {
-		diagnosticMenuDisplayFuelSystemStatus(dm, info_window);
-	} else if (dm->ctx->pids[pid].supported) {
-		mvwprintw(info_window, 0, 0, "SUPPORTED - NOT IMPLEMENTED");
-	} else {
-		mvwprintw(info_window, 0, 0, "NOT SUPPORTED");
+	switch (pid) {
+		case 0x03:
+			diagnosticMenuDisplayFuelSystemStatus(dm, info_window);
+			break;
+		case 0x04:
+			diagnosticMenuDisplayEngineLoad(dm, info_window);
+			break;
+		case 0x05:
+			diagnosticMenuDisplayCoolantTemp(dm, info_window);
+			break;
+		default:
+			if (dm->ctx->pids[pid].supported) {
+				mvwprintw(info_window, 0, 0, "SUPPORTED - NOT IMPLEMENTED");
+			} else {
+				mvwprintw(info_window, 0, 0, "NOT SUPPORTED");
+			}
+			break;
 	}
 }
 
@@ -215,4 +224,9 @@ void diagnosticMenuDisplayFuelSystemStatus(DiagnosticMenu *dm, WINDOW *info_wind
 				mvwprintw(info_window, i, 0, "System %d: Fuel system status unknown", i);
 		}
 	}
+}
+
+void diagnosticMenuDisplayEngineLoad(DiagnosticMenu *dm, WINDOW *info_window) {
+	uint8_t A = hex_chars_to_u8(dm->ctx->pids[0x04].data);
+	mvwprintw(info_window, 0, 0, "Engine Load: %f%%", (float)A * 100.0f / 128.0f);
 }

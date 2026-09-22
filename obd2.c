@@ -499,11 +499,8 @@ void *obd2_receive_messages(void *ctx_arg) {
 					}
 					break;
 				case 0x03: // Fuel System Status
-					obd2_update_fuel_system_status(ctx, recv_buf);
-					break;
 				case 0x05: // Coolant Temp
-					// Temp = A - 40
-					obd2_update_coolant_temp(ctx, recv_buf);
+					obd2_update_pid_data(ctx, recv_buf, idx);
 					break;
 				case 0x06: // STFT Bank 1
 					break;
@@ -514,15 +511,6 @@ void *obd2_receive_messages(void *ctx_arg) {
 	return NULL;
 }
 
-void obd2_update_coolant_temp(obd2_reader_ctx *ctx, char *recv_buf) {
-	// Coolant temp = A - 40
-	memcpy(ctx->pids[0x05].data, recv_buf + 6, obd2_pid_data_sizes[0x05]);
-	//uint8_t A = hex_chars_to_u8(recv_buf + 6);
-	//ctx->coolant_temp = A - 40;
-}
-
-void obd2_update_fuel_system_status(obd2_reader_ctx *ctx, char *recv_buf) {
-	memcpy(ctx->pids[0x03].data, recv_buf + 6, obd2_pid_data_sizes[0x03]);
-	//uint16_t AB = hex_chars_to_u16(recv_buf + 6);
-	//ctx->fuel_system_status = AB;
+void obd2_update_pid_data(obd2_reader_ctx *ctx, char *recv_buf, int pid) {
+	memcpy(ctx->pids[pid].data, recv_buf + 6, obd2_pid_data_sizes[pid]);
 }
