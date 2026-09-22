@@ -16,15 +16,17 @@
 #include "common.h"
 
 int main() {
-	obd2_reader_ctx ctx;
-	obd2_ctx_init(&ctx);
-
 	initscr();	
 	start_color();
 	cbreak();
 	noecho();
 	keypad(stdscr, TRUE);
 	refresh();
+
+	obd2_reader_ctx ctx;
+	arena *a = arena_create(10000); // how much do we need?
+	obd2_ctx_init(&ctx, a);
+
 
 	void *res;
 	pthread_t device_connect_thread, receiver_thread;

@@ -110,7 +110,7 @@ void diagnosticMenuDisplayPidMenu(DiagnosticMenu *dm __attribute_maybe_unused__)
 	post_menu(pid_menu);
 	wrefresh(menu_window);
 	wbkgd(info_window, COLOR_PAIR(1));
-	if (dm->ctx->pids_supported[0]) {
+	if (dm->ctx->pids[0].supported) {
 		mvwprintw(info_window, 0, 0, "SUPPORTED");
 	} else {
 		mvwprintw(info_window, 0, 0, "NOT SUPPORTED");
@@ -131,6 +131,7 @@ void diagnosticMenuDisplayPidMenu(DiagnosticMenu *dm __attribute_maybe_unused__)
 				break;
 			case KEY_DOWN:
 				curr_choice = min(curr_choice + 1, idx - 2);
+				menu_driver(pid_menu, REQ_DOWN_ITEM);
 				diagnosticMenuDisplayPidData(dm, info_window, curr_choice);
 				break;
 			case KEY_UP:
@@ -164,36 +165,45 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__,
 		pid += 3;
 	}
 	if (pid == 5) {
-		mvwprintw(info_window, 0, 0, "COOLANT TEMP: %d C", dm->ctx->coolant_temp);
+		diagnosticMenuDisplayCoolantTemp(dm, info_window);
 	} else if (pid == 3) {
-		for (int i = 0; i < 2; i++) {
-			switch (dm->ctx->fuel_system_status << (1 - i)) {
-				case 0:
-					mvwprintw(info_window, 0, 0, "Motor off");
-					break;
-				case 1:
-					mvwprintw(info_window, 0, 0, "Open loop due to insufficient engine temperature");
-					break;
-				case 2:
-					mvwprintw(info_window, 0, 0, "Closed loop, using oxygen sensor feedback to determine fuel mix");
-					break;
-				case 4:
-					mvwprintw(info_window, 0, 0, "Open loop due to engine load OR fuel cut due to deceleration");
-					break;
-				case 8:
-					mvwprintw(info_window, 0, 0, "Open loop due to system failure");
-					break;
-				case 16:
-					mvwprintw(info_window, 0, 0, "Closed loop, using at least one oxygen sensor but there is a fault in the feedback system");
-					break;
-				default:
-					mvwprintw(info_window, 0, 0, "Fuel system status unknown");
-			}
-		}
-	} else if (dm->ctx->pids_supported[pid]) {
+		diagnosticMenuDisplayFuelSystemStatus(dm, info_window);
+	} else if (dm->ctx->pids[pid].supported) {
 		mvwprintw(info_window, 0, 0, "SUPPORTED - NOT IMPLEMENTED");
 	} else {
 		mvwprintw(info_window, 0, 0, "NOT SUPPORTED");
 	}
 }
 
+void diagnosticMenuDisplayCoolantTemp(DiagnosticMenu *dm, WINDOW *info_window) {
+	uint8_t coolant_temp = hex_chars_to_u8(dm->ctx->pids[0x05].data) - 40;
+	mvwprintw(info_window, 0, 0, "COOLANT TEMP: %d C", coolant_temp);
+}
+
+void diagnosticMenuDisplayFuelSystemStatus(DiagnosticMenu *dm, WINDOW *info_window) {
+	uint16_t fuel_system_status = hex_chars_to_u16(dm->ctx->pids[0x03].data);
+	for (int i = 0; i < 2; i++) {
+		switch (fuel_system_status << (1 - i)) {
+			case 0:
+				mvwprintw(info_window, i, 0, "System %d: Motor off", i);
+				break;
+			case 1:
+				mvwprintw(info_window, i, 0, "System %d: Open loop due to insufficient engine temperature", i);
+				break;
+			case 2:
+				mvwprintw(info_window, i, 0, "System %d: Closed loop, using oxygen sensor feedback to determine fuel mix", i);
+				break;
+			case 4:
+				mvwprintw(info_window, i, 0, "System %d: Open loop due to engine load OR fuel cut due to deceleration", i);
+				break;
+			case 8:
+				mvwprintw(info_window, i, 0, "System %d: Open loop due to system failure", i);
+				break;
+			case 16:
+				mvwprintw(info_window, i, 0, "System %d: Closed loop, using at least one oxygen sensor but there is a fault in the feedback system", i);
+				break;
+			default:
+				mvwprintw(info_window, i, 0, "System %d: Fuel system status unknown", i);
+		}
+	}
+}

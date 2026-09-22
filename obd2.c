@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <netinet/tcp.h>
 
+#include "arena.h"
 #include "common.h"
 #include "obd2.h"
 
@@ -189,13 +190,200 @@ const char* obd2_pid_descriptions[] = {
 	[0xC8] = "NOx Control Diagnostic (NCD) and Particulate Control Diagnostic (PCD) Warning Lamp status"
 };
 
-void obd2_ctx_init(obd2_reader_ctx *ctx) {
+const size_t obd2_pid_data_sizes[] = {
+	[0x00] = 4,
+	[0x01] = 4,
+	[0x02] = 2,
+	[0x03] = 2,
+	[0x04] = 1,
+	[0x05] = 1,
+	[0x06] = 1,
+	[0x07] = 1,
+	[0x08] = 1,
+	[0x09] = 1,
+	[0x0A] = 1,
+	[0x0B] = 1,
+	[0x0C] = 2,
+	[0x0D] = 1,
+	[0x0E] = 1,
+	[0x0F] = 1,
+	[0x10] = 2,
+	[0x11] = 1,
+	[0x12] = 1,
+	[0x13] = 1,
+	[0x14] = 2,
+	[0x15] = 2,
+	[0x16] = 2,
+	[0x17] = 2,
+	[0x18] = 2,
+	[0x19] = 2,
+	[0x1A] = 2,
+	[0x1B] = 2,
+	[0x1C] = 1,
+	[0x1D] = 1,
+	[0x1E] = 1,
+	[0x1F] = 2,
+	[0x20] = 4,
+	[0x21] = 2,
+	[0x22] = 2,
+	[0x23] = 2,
+	[0x24] = 4,
+	[0x25] = 4,
+	[0x26] = 4,
+	[0x27] = 4,
+	[0x28] = 4,
+	[0x29] = 4,
+	[0x2A] = 4,
+	[0x2B] = 4,
+	[0x2C] = 1,
+	[0x2D] = 1,
+	[0x2E] = 1,
+	[0x2F] = 1,
+	[0x30] = 1,
+	[0x31] = 2,
+	[0x32] = 2,
+	[0x33] = 1,
+	[0x34] = 4,
+	[0x35] = 4,
+	[0x36] = 4,
+	[0x37] = 4,
+	[0x38] = 4,
+	[0x39] = 4,
+	[0x3A] = 4,
+	[0x3B] = 4,
+	[0x3C] = 2,
+	[0x3D] = 2,
+	[0x3E] = 2,
+	[0x3F] = 2,
+	[0x40] = 4,
+	[0x41] = 4,
+	[0x42] = 2,
+	[0x43] = 2,
+	[0x44] = 2,
+	[0x45] = 1,
+	[0x46] = 1,
+	[0x47] = 1,
+	[0x48] = 1,
+	[0x49] = 1,
+	[0x4A] = 1,
+	[0x4B] = 1,
+	[0x4C] = 1,
+	[0x4D] = 2,
+	[0x4E] = 2,
+	[0x4F] = 4,
+	[0x50] = 4,
+	[0x51] = 1,
+	[0x52] = 1,
+	[0x53] = 2,
+	[0x54] = 2,
+	[0x55] = 2,
+	[0x56] = 2,
+	[0x57] = 2,
+	[0x58] = 2,
+	[0x59] = 2,
+	[0x5A] = 1,
+	[0x5B] = 1,
+	[0x5C] = 1,
+	[0x5D] = 2,
+	[0x5E] = 2,
+	[0x5F] = 1,
+	[0x60] = 4,
+	[0x61] = 1,
+	[0x62] = 1,
+	[0x63] = 2,
+	[0x64] = 5,
+	[0x65] = 2,
+	[0x66] = 5,
+	[0x67] = 3,
+	[0x68] = 3,
+	[0x69] = 7,
+	[0x6A] = 5,
+	[0x6B] = 5,
+	[0x6C] = 5,
+	[0x6D] = 11,
+	[0x6E] = 9,
+	[0x6F] = 3,
+	[0x70] = 10,
+	[0x71] = 6,
+	[0x72] = 5,
+	[0x73] = 5,
+	[0x74] = 5,
+	[0x75] = 7,
+	[0x76] = 7,
+	[0x77] = 5,
+	[0x78] = 9,
+	[0x79] = 9,
+	[0x7A] = 7,
+	[0x7B] = 7,
+	[0x7C] = 9,
+	[0x7D] = 1,
+	[0x7E] = 1,
+	[0x7F] = 13,
+	[0x80] = 4,
+	[0x81] = 41,
+	[0x82] = 41,
+	[0x83] = 9,
+	[0x84] = 1,
+	[0x85] = 10,
+	[0x86] = 5,
+	[0x87] = 5,
+	[0x88] = 13,
+	[0x89] = 41,
+	[0x8A] = 41,
+	[0x8B] = 7,
+	[0x8C] = 17,
+	[0x8D] = 1,
+	[0x8E] = 1,
+	[0x8F] = 7,
+	[0x90] = 3,
+	[0x91] = 5,
+	[0x92] = 2,
+	[0x93] = 3,
+	[0x94] = 12,
+	[0x98] = 9,
+	[0x99] = 9,
+	[0x9A] = 6,
+	[0x9B] = 4,
+	[0x9C] = 17,
+	[0x9D] = 4,
+	[0x9E] = 2,
+	[0x9F] = 9,
+	[0xA0] = 4,
+	[0xA1] = 9,
+	[0xA2] = 2,
+	[0xA3] = 9,
+	[0xA4] = 4,
+	[0xA5] = 4,
+	[0xA6] = 4,
+	[0xA7] = 4,
+	[0xA8] = 4,
+	[0xA9] = 4,
+	[0xC0] = 4,
+	[0xC3] = 2,
+	[0xC4] = 8,
+	[0xC5] = 4,
+	[0xC6] = 7,
+	[0xC7] = 2,
+	[0xC8] = 1
+};
+
+void obd2_ctx_init(obd2_reader_ctx *ctx, arena *a) {
 	ctx->is_valid = false;
 	pthread_mutex_init(&ctx->connection_state_mutex, NULL);
 	ctx->connection_state = UNDEFINED;
 	
-	ctx->log_file = fopen("log.txt", "w");
 	// TODO - gotta be more robust eventually
+	ctx->log_file = fopen("log.txt", "w");
+
+	ctx->mem_arena = a;
+	ctx->num_pids = 200;
+	ctx->pids = ARENA_ALLOC(a, obd2_pid, ctx->num_pids);
+
+	for (size_t i = 0; i < ctx->num_pids; i++) {
+		ctx->pids[i].data = ARENA_ALLOC(a, obd2_pid, obd2_pid_data_sizes[i]);
+		ctx->pids[i].service_mode = 1; // TODO - will need to break out into separate service modes once they are supported
+		ctx->pids[i].supported = false;
+	}
 }
 
 void *obd2_device_init(void *ctx_arg) {
@@ -304,9 +492,9 @@ void *obd2_receive_messages(void *ctx_arg) {
 				case 0xC0:
 					supported_bits = hex_chars_to_u32(recv_buf + 6);
 					for (int i = idx; i < idx + 32; i++) {
-						ctx->pids_supported[i] = false;
+						ctx->pids[i].supported = false;
 						if ((1 << (31 - (i - idx))) & supported_bits) {
-							ctx->pids_supported[i] = true;
+							ctx->pids[i].supported = true;
 						}
 					}
 					break;
@@ -325,13 +513,13 @@ void *obd2_receive_messages(void *ctx_arg) {
 
 void obd2_update_coolant_temp(obd2_reader_ctx *ctx, char *recv_buf) {
 	// Coolant temp = A - 40
-	uint8_t A = hex_chars_to_u8(recv_buf + 6);
-	ctx->coolant_temp = A - 40;
+	memcpy(ctx->pids[0x05].data, recv_buf + 6, obd2_pid_data_sizes[0x05]);
+	//uint8_t A = hex_chars_to_u8(recv_buf + 6);
+	//ctx->coolant_temp = A - 40;
 }
 
 void obd2_update_fuel_system_status(obd2_reader_ctx *ctx, char *recv_buf) {
-	uint16_t AB = hex_chars_to_u16(recv_buf + 6);
-	ctx->fuel_system_status = AB;
+	memcpy(ctx->pids[0x03].data, recv_buf + 6, obd2_pid_data_sizes[0x03]);
+	//uint16_t AB = hex_chars_to_u16(recv_buf + 6);
+	//ctx->fuel_system_status = AB;
 }
-
-
