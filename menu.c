@@ -123,18 +123,27 @@ void diagnosticMenuDisplayPidMenu(DiagnosticMenu *dm __attribute_maybe_unused__)
 		// TODO - the SUPPORTED/UNSUPPORTED logic gets buggy due to some of the indices 
 		// in the supported_pids array being missing. Need to handle this
 		int c = getch();
-		werase(menu_window);
-		werase(info_window);
+		//werase(menu_window);
 		switch (c) {
 			case KEY_F(1):
 				brk = true;
 				break;
 			case KEY_DOWN:
+				if (curr_choice == idx - 2) {
+					menu_driver(pid_menu, REQ_LAST_ITEM);
+					break;
+				}
+				werase(info_window);
 				curr_choice = min(curr_choice + 1, idx - 2);
 				menu_driver(pid_menu, REQ_DOWN_ITEM);
 				diagnosticMenuDisplayPidData(dm, info_window, curr_choice);
 				break;
 			case KEY_UP:
+				if (curr_choice == 0) {
+					menu_driver(pid_menu, REQ_FIRST_ITEM);
+					break;
+				}
+				werase(info_window);
 				curr_choice--;
 				curr_choice = max(curr_choice, 0);
 				menu_driver(pid_menu, REQ_UP_ITEM);
@@ -144,12 +153,12 @@ void diagnosticMenuDisplayPidMenu(DiagnosticMenu *dm __attribute_maybe_unused__)
 				// TODO - handle enter
 				break;
 		}
+		refresh();
 
 		wrefresh(menu_window);
 
 		wrefresh(info_window);
 
-		refresh();
 	}
 
 	unpost_menu(pid_menu);

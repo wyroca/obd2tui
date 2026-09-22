@@ -498,6 +498,9 @@ void *obd2_receive_messages(void *ctx_arg) {
 						}
 					}
 					break;
+				case 0x03: // Fuel System Status
+					obd2_update_fuel_system_status(ctx, recv_buf);
+					break;
 				case 0x05: // Coolant Temp
 					// Temp = A - 40
 					obd2_update_coolant_temp(ctx, recv_buf);
