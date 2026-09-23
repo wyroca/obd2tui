@@ -22,5 +22,18 @@ void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__,
 void diagnosticMenuDisplayCoolantTemp(DiagnosticMenu *dm, WINDOW *info_window);
 void diagnosticMenuDisplayFuelSystemStatus(DiagnosticMenu *dm, WINDOW *info_window);
 void diagnosticMenuDisplayEngineLoad(DiagnosticMenu *dm, WINDOW *info_window);
+void diagnosticMenuDisplayFuelTrim(DiagnosticMenu *dm, WINDOW *info_window, int pid);
+void diagnosticMenuDisplayFuelPressure(DiagnosticMenu *dm, WINDOW *info_window);
+void diagnosticMenuDisplayMAP(DiagnosticMenu *dm, WINDOW *info_window);
+void diagnosticMenuDisplayEngineSpeed(DiagnosticMenu *dm, WINDOW *info_window);
+void diagnosticMenuDisplayVehicleSpeed(DiagnosticMenu *dm, WINDOW *info_window);
+void diagnosticMenuDisplayTimingAdvance(DiagnosticMenu *dm, WINDOW *info_window);
+void diagnosticMenuDisplayIntakeAirTemp(DiagnosticMenu *dm, WINDOW *info_window);
+void diagnosticMenuDisplayMAFSensorRate(DiagnosticMenu *dm, WINDOW *info_window);
+void diagnosticMenuDisplayThrottlePosition(DiagnosticMenu *dm, WINDOW *info_window);
+void diagnosticMenuDisplayCommandedSecondaryAirStatus(DiagnosticMenu *dm, WINDOW *info_window);
+void diagnosticMenuDisplayOxygenSensorsPresent(DiagnosticMenu *dm, WINDOW *info_window);
+void diagnosticMenuDisplayOxygenSensorData(DiagnosticMenu *dm, WINDOW *info_window, int pid);
+void diagnosticMenuDisplayOBDStandardsConformedTo(DiagnosticMenu *dm, WINDOW *info_window);
 
 #endif // !MENU_H
