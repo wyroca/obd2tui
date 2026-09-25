@@ -380,7 +380,7 @@ void obd2_ctx_init(obd2_reader_ctx *ctx, arena *a) {
 	ctx->pids = ARENA_ALLOC(a, obd2_pid, ctx->num_pids);
 
 	for (size_t i = 0; i < ctx->num_pids; i++) {
-		ctx->pids[i].data = ARENA_ALLOC(a, obd2_pid, obd2_pid_data_sizes[i]);
+		ctx->pids[i].data = ARENA_ALLOC(a, obd2_pid, obd2_pid_data_sizes[i] * 2);
 		ctx->pids[i].service_mode = 1; // TODO - will need to break out into separate service modes once they are supported
 		ctx->pids[i].supported = false;
 	}
@@ -471,11 +471,8 @@ void *obd2_receive_messages(void *ctx_arg) {
 		ssize_t num_bytes = recv(ctx->sockfd, recv_buf, 63, 0);
 		if (num_bytes == -1) {
 			fprintf(ctx->log_file, "Error reading message from OBD2 device\n");
-		} else {
-			fprintf(ctx->log_file, "Received message: ");
-			fprintf(ctx->log_file, recv_buf);
+			fflush(ctx->log_file);
 		}
-		fflush(ctx->log_file);
 		// TODO - special handling of "NO DATA" response?
 
 		if (strncmp(recv_buf, "41 ", 3) == 0) {
@@ -500,6 +497,7 @@ void *obd2_receive_messages(void *ctx_arg) {
 					break;
 				case 0x03: // Fuel System Status
 				case 0x05: // Coolant Temp
+				case 0x0C:
 					obd2_update_pid_data(ctx, recv_buf, idx);
 					break;
 				case 0x06: // STFT Bank 1
@@ -511,6 +509,28 @@ void *obd2_receive_messages(void *ctx_arg) {
 	return NULL;
 }
 
+void *obd2_send_requests(void *ctx_arg) {
+	usleep(800 * 1e3);
+	obd2_reader_ctx *ctx = (obd2_reader_ctx*)ctx_arg;
+
+	char send_buf[6] = {0};
+	while (1) {
+		usleep(1000 * 1e3); // TODO - tune this parameter
+
+		send_buf[0] = '0';
+		send_buf[1] = '1';
+		send_buf[2] = ' ';
+
+		u8_to_hex_chars(send_buf + 3, ctx->pid_requesting);
+		send_buf[5] = '\r';
+		send(ctx->sockfd, send_buf, 6, 0);
+
+		memset(send_buf, 0, 6);	
+	}
+
+	return NULL;
+}
+
 void obd2_update_pid_data(obd2_reader_ctx *ctx, char *recv_buf, int pid) {
-	memcpy(ctx->pids[pid].data, recv_buf + 6, obd2_pid_data_sizes[pid]);
+	memcpy(ctx->pids[pid].data, recv_buf + 6, obd2_pid_data_sizes[pid] * 2);
 }

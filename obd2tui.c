@@ -29,7 +29,7 @@ int main() {
 
 
 	void *res;
-	pthread_t device_connect_thread, receiver_thread;
+	pthread_t device_connect_thread, receiver_thread, sender_thread;
 
 	pthread_create(&device_connect_thread, NULL, obd2_device_init, &ctx);
 
@@ -42,6 +42,7 @@ int main() {
 	pthread_join(device_connect_thread, &res);
 
 	pthread_create(&receiver_thread, NULL, obd2_receive_messages, &ctx);
+	pthread_create(&sender_thread, NULL, obd2_send_requests, &ctx);
 
 	obd2_reader_get_all_supported_pids(&ctx);
 
@@ -57,6 +58,7 @@ int main() {
 		diagnosticMenuLoop(&dm);
 	}
 
+	pthread_join(sender_thread, &res);
 	pthread_join(receiver_thread, &res);
 
 	endwin();

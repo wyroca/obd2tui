@@ -33,6 +33,8 @@ typedef struct {
 	ConnectionState connection_state;
 	pthread_cond_t connection_condition;
 	pthread_mutex_t connection_state_mutex;
+	uint8_t pid_requesting;
+	pthread_mutex_t pid_requesting_mutex;
 	bool is_valid;
 	obd2_pid *pids;
 	size_t num_pids;
@@ -46,6 +48,7 @@ void *obd2_device_init(void *ctx_arg);
 void obd2_reader_get_supported_pids_at(obd2_reader_ctx *ctx, const char *at);
 void obd2_reader_get_all_supported_pids(obd2_reader_ctx *ctx);
 void *obd2_receive_messages(void *ctx_arg);
+void *obd2_send_requests(void *ctx_arg);
 void obd2_update_pid_data(obd2_reader_ctx *ctx, char *recv_buf, int pid);
 
 

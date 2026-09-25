@@ -7,7 +7,9 @@
 #include <ncurses.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/cdefs.h>
+#include <unistd.h>
 
 
 static char *diagnostic_menu_options[] = {
@@ -119,11 +121,14 @@ void diagnosticMenuDisplayPidMenu(DiagnosticMenu *dm __attribute_maybe_unused__)
 
 	int curr_choice = 0;
 	bool brk = false;
+	nodelay(menu_window, true);
+	nodelay(stdscr, true);
 	while (!brk) {
 		// TODO - the SUPPORTED/UNSUPPORTED logic gets buggy due to some of the indices 
 		// in the supported_pids array being missing. Need to handle this
+		//int c = wgetch(menu_window);
 		int c = getch();
-		//werase(menu_window);
+
 		switch (c) {
 			case KEY_F(1):
 				brk = true;
@@ -133,26 +138,37 @@ void diagnosticMenuDisplayPidMenu(DiagnosticMenu *dm __attribute_maybe_unused__)
 					menu_driver(pid_menu, REQ_LAST_ITEM);
 					break;
 				}
-				werase(info_window);
 				curr_choice = min(curr_choice + 1, idx - 2);
+
+				pthread_mutex_lock(&dm->ctx->pid_requesting_mutex);
+				dm->ctx->pid_requesting = (uint8_t)curr_choice;
+				pthread_mutex_unlock(&dm->ctx->pid_requesting_mutex);
+
 				menu_driver(pid_menu, REQ_DOWN_ITEM);
-				diagnosticMenuDisplayPidData(dm, info_window, curr_choice);
 				break;
 			case KEY_UP:
 				if (curr_choice == 0) {
 					menu_driver(pid_menu, REQ_FIRST_ITEM);
 					break;
 				}
-				werase(info_window);
 				curr_choice--;
 				curr_choice = max(curr_choice, 0);
+
+				pthread_mutex_lock(&dm->ctx->pid_requesting_mutex);
+				dm->ctx->pid_requesting = (uint8_t)curr_choice;
+				pthread_mutex_unlock(&dm->ctx->pid_requesting_mutex);
+
 				menu_driver(pid_menu, REQ_UP_ITEM);
-				diagnosticMenuDisplayPidData(dm, info_window, curr_choice);
+				break;
+			case ERR:
 				break;
 			case 10:
 				// TODO - handle enter
 				break;
 		}
+		werase(info_window);
+		diagnosticMenuDisplayPidData(dm, info_window, curr_choice);
+		usleep(16 * 1e3);
 		refresh();
 
 		wrefresh(menu_window);
@@ -162,7 +178,6 @@ void diagnosticMenuDisplayPidMenu(DiagnosticMenu *dm __attribute_maybe_unused__)
 	}
 
 	unpost_menu(pid_menu);
-	//wclear(stdscr);
 }
 
 void diagnosticMenuDisplayPidData(DiagnosticMenu *dm __attribute_maybe_unused__, WINDOW *info_window, int pid) {
@@ -316,7 +331,9 @@ void diagnosticMenuDisplayMAP(DiagnosticMenu *dm, WINDOW *info_window) {
 }
 
 void diagnosticMenuDisplayEngineSpeed(DiagnosticMenu *dm, WINDOW *info_window) {
-	uint8_t AB = hex_chars_to_u16(dm->ctx->pids[0x0C].data);
+	char data[5];
+	strncpy(data, dm->ctx->pids[0x0C].data, 5);
+	uint16_t AB = hex_chars_to_u16(data);
 	float engine_speed = AB / 4.0f;
 	mvwprintw(info_window, 0, 0, "Engine Speed: %f rpm", engine_speed);
 }

@@ -27,12 +27,16 @@ uint8_t hex_chars_to_u8(const char *chars) {
 	return 16 * hex_char_to_nibble(chars[0]) + hex_char_to_nibble(chars[1]);
 }
 
-uint8_t hex_chars_to_u16(const char *chars) {
+uint16_t hex_chars_to_u16(const char *chars) {
 	uint16_t result = 0;
-	result += 4096 * hex_char_to_nibble(chars[0]);
-	result += 256 * hex_char_to_nibble(chars[1]);
-	result += 16 * hex_char_to_nibble(chars[2]);
-	result += hex_char_to_nibble(chars[3]);
+	int idx = 0;
+	result += 4096 * hex_char_to_nibble(chars[idx]);
+	while (chars[idx] == ' ') idx++;
+	result += 256 * hex_char_to_nibble(chars[idx]);
+	while (chars[idx] == ' ') idx++;
+	result += 16 * hex_char_to_nibble(chars[idx]);
+	while (chars[idx] == ' ') idx++;
+	result += hex_char_to_nibble(chars[idx]);
 	return result;
 }
 
@@ -48,4 +52,21 @@ uint32_t hex_chars_to_u32(const char *chars) {
 	}
 
 	return result;
+}
+
+void u8_to_hex_chars(char *dest_buf, uint8_t val) {
+	uint8_t high_bits = (val & 0xF0) >> 4;
+	uint8_t low_bits = val & 0x0F;
+
+	if (high_bits < 10) {
+		dest_buf[0] = '0' + high_bits;
+	} else {
+		dest_buf[0] = 'A' + high_bits - 10;
+	}
+
+	if (low_bits < 10) {
+		dest_buf[1] = '0' + low_bits;
+	} else {
+		dest_buf[1] = 'A' + low_bits - 10;
+	}
 }
