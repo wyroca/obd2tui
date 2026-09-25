@@ -46,11 +46,6 @@ int main() {
 
 	obd2_reader_get_all_supported_pids(&ctx);
 
-	wclear(stdscr);
-	mvprintw(0, 0, "DONE???");
-	getch();
-	refresh();
-
 	DiagnosticMenu dm;
 	diagnosticMenuInit(&dm, &ctx);
 
