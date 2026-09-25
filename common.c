@@ -30,13 +30,13 @@ uint8_t hex_chars_to_u8(const char *chars) {
 uint16_t hex_chars_to_u16(const char *chars) {
 	uint16_t result = 0;
 	int idx = 0;
-	result += 4096 * hex_char_to_nibble(chars[idx]);
+	result += 4096 * hex_char_to_nibble(chars[idx++]);
 	while (chars[idx] == ' ') idx++;
-	result += 256 * hex_char_to_nibble(chars[idx]);
+	result += 256 * hex_char_to_nibble(chars[idx++]);
 	while (chars[idx] == ' ') idx++;
-	result += 16 * hex_char_to_nibble(chars[idx]);
+	result += 16 * hex_char_to_nibble(chars[idx++]);
 	while (chars[idx] == ' ') idx++;
-	result += hex_char_to_nibble(chars[idx]);
+	result += hex_char_to_nibble(chars[idx++]);
 	return result;
 }
 
